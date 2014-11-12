@@ -90,6 +90,9 @@ func (ctxt *clientContext) do(req *http.Request, getBody func() io.ReadCloser) (
 func (ctxt *clientContext) do1(req *http.Request, getBody func() io.ReadCloser) (*http.Response, error) {
 	if getBody != nil {
 		req.Body = getBody()
+	} else {
+		getBody = func() io.ReadCloser { return nil }
+		req.Body = nil
 	}
 	httpResp, err := ctxt.client.Do(req)
 	if err != nil {
@@ -129,9 +132,7 @@ func (ctxt *clientContext) do1(req *http.Request, getBody func() io.ReadCloser) 
 		return nil, errgo.Notef(err, "cannot add cookie")
 	}
 	// Try again with our newly acquired discharge macaroons
-	if getBody != nil {
-		req.Body = getBody() // set the body
-	}
+	req.Body = getBody() // set the body
 	hresp, err := ctxt.client.Do(req)
 	return hresp, err
 }

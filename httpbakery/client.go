@@ -126,7 +126,7 @@ func (ctxt *clientContext) do1(req *http.Request, getBody func() io.ReadCloser) 
 		return nil, errgo.Notef(err, "cannot add cookie")
 	}
 	// Try again with our newly acquired discharge macaroons
-	req.Body = getBody() // set the body
+	req.Body = getBody()
 	hresp, err := ctxt.client.Do(req)
 	return hresp, err
 }

@@ -30,7 +30,7 @@ func clientRequest(serverEndpoint string) (string, error) {
 		fmt.Printf("\t%s\n", url)
 		return nil
 	}
-	resp, err := httpbakery.Do(httpbakery.DefaultHTTPClient, req, visitWebPage)
+	resp, err := httpbakery.Do(httpbakery.DefaultHTTPClient, req, visitWebPage, nil)
 	if err != nil {
 		return "", errgo.NoteMask(err, "GET failed", errgo.Any)
 	}

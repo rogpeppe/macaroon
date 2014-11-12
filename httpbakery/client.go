@@ -33,7 +33,7 @@ type WaitResponse struct {
 //
 // If the client.Jar field is non-nil, the macaroons will be
 // stored there and made available to subsequent requests.
-func Do(client *http.Client, req *http.Request, visitWebPage func(url *url.URL) error) (*http.Response, error) {
+func Do(client *http.Client, req *http.Request, visitWebPage func(url *url.URL) error, getBody func() io.ReadCloser) (*http.Response, error) {
 	// Add a temporary cookie jar (without mutating the original
 	// client) if there isn't one available.
 	if client.Jar == nil {
@@ -51,7 +51,7 @@ func Do(client *http.Client, req *http.Request, visitWebPage func(url *url.URL) 
 		client:       client,
 		visitWebPage: visitWebPage,
 	}
-	return ctxt.do(req)
+	return ctxt.do(req, getBody)
 }
 
 type clientContext struct {
@@ -75,14 +75,19 @@ func relativeURL(base, new string) (*url.URL, error) {
 	return baseURL.ResolveReference(newURL), nil
 }
 
-func (ctxt *clientContext) do(req *http.Request) (*http.Response, error) {
+func (ctxt *clientContext) do(req *http.Request, getBody func() io.ReadCloser) (*http.Response, error) {
 	log.Printf("client do %s %s {", req.Method, req.URL)
-	resp, err := ctxt.do1(req)
+	resp, err := ctxt.do1(req, getBody)
 	log.Printf("} -> error %#v", err)
 	return resp, err
 }
 
-func (ctxt *clientContext) do1(req *http.Request) (*http.Response, error) {
+func (ctxt *clientContext) do1(req *http.Request, getBody func() io.ReadCloser) (*http.Response, error) {
+	if getBody == nil {
+		getBody = func() io.ReadCloser { return nil }
+	}
+	req.Body = getBody()
+
 	httpResp, err := ctxt.client.Do(req)
 	if err != nil {
 		return nil, err
@@ -121,6 +126,7 @@ func (ctxt *clientContext) do1(req *http.Request) (*http.Response, error) {
 		return nil, errgo.Notef(err, "cannot add cookie")
 	}
 	// Try again with our newly acquired discharge macaroons
+	req.Body = getBody()
 	hresp, err := ctxt.client.Do(req)
 	return hresp, err
 }
@@ -220,17 +226,21 @@ func (ctxt *clientContext) interact(location, visitURLStr, waitURLStr string) (*
 func (ctxt *clientContext) postForm(url string, data url.Values) (*http.Response, error) {
 	log.Printf("clientContext.postForm {")
 	defer log.Printf("}")
-	return ctxt.post(url, "application/x-www-form-urlencoded", strings.NewReader(data.Encode()))
+
+	getBody := func() io.ReadCloser {
+		return ioutil.NopCloser(strings.NewReader(data.Encode()))
+	}
+	return ctxt.post(url, "application/x-www-form-urlencoded", getBody)
 }
 
-func (ctxt *clientContext) post(url string, bodyType string, body io.Reader) (resp *http.Response, err error) {
-	req, err := http.NewRequest("POST", url, body)
+func (ctxt *clientContext) post(url string, bodyType string, getBody func() io.ReadCloser) (resp *http.Response, err error) {
+	req, err := http.NewRequest("POST", url, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", bodyType)
 	// TODO(rog) see http.shouldRedirectPost
-	return ctxt.do(req)
+	return ctxt.do(req, getBody)
 }
 
 // postFormJSON does an HTTP POST request to the given url with the given

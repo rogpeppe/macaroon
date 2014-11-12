@@ -1,7 +1,6 @@
 package httpbakery
 
 import (
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -35,10 +34,6 @@ type WaitResponse struct {
 // If the client.Jar field is non-nil, the macaroons will be
 // stored there and made available to subsequent requests.
 func Do(client *http.Client, req *http.Request, visitWebPage func(url *url.URL) error, getBody func() io.ReadCloser) (*http.Response, error) {
-	if getBody == nil && req.Method == "POST" {
-		return nil, errgo.New("nil getBody parameter on a POST request")
-	}
-
 	// Add a temporary cookie jar (without mutating the original
 	// client) if there isn't one available.
 	if client.Jar == nil {
@@ -88,12 +83,11 @@ func (ctxt *clientContext) do(req *http.Request, getBody func() io.ReadCloser) (
 }
 
 func (ctxt *clientContext) do1(req *http.Request, getBody func() io.ReadCloser) (*http.Response, error) {
-	if getBody != nil {
-		req.Body = getBody()
-	} else {
+	if getBody == nil {
 		getBody = func() io.ReadCloser { return nil }
-		req.Body = nil
 	}
+	req.Body = getBody()
+
 	httpResp, err := ctxt.client.Do(req)
 	if err != nil {
 		return nil, err
@@ -233,9 +227,10 @@ func (ctxt *clientContext) postForm(url string, data url.Values) (*http.Response
 	log.Printf("clientContext.postForm {")
 	defer log.Printf("}")
 
-	return ctxt.post(url, "application/x-www-form-urlencoded", func() io.ReadCloser {
-		return newStringReadCloser(data.Encode())
-	})
+	getBody := func() io.ReadCloser {
+		return ioutil.NopCloser(strings.NewReader(data.Encode()))
+	}
+	return ctxt.post(url, "application/x-www-form-urlencoded", getBody)
 }
 
 func (ctxt *clientContext) post(url string, bodyType string, getBody func() io.ReadCloser) (resp *http.Response, err error) {
@@ -274,17 +269,4 @@ func postFormJSON(url string, vals url.Values, resp interface{}, postForm func(u
 		return errgo.Notef(err, "cannot unmarshal response from %q", url)
 	}
 	return nil
-}
-
-type bodyReader struct {
-	*bytes.Buffer
-}
-
-// to implement io.ReadCloser interface
-func (br bodyReader) Close() error {
-	return nil
-}
-
-func newStringReadCloser(data string) io.ReadCloser {
-	return &bodyReader{bytes.NewBuffer([]byte(data))}
 }

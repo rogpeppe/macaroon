@@ -38,7 +38,7 @@ func main() {
 	serverEndpoint := mustServe(func(endpoint string) (http.Handler, error) {
 		return targetService(endpoint, authEndpoint, authPublicKey)
 	})
-	resp, err := clientRequest(serverEndpoint + "/gold")
+	resp, err := clientRequest(serverEndpoint)
 	if err != nil {
 		log.Fatalf("client failed: %v", err)
 	}

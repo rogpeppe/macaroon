@@ -177,3 +177,35 @@ func (m *Macaroon) expectPacket(start int, kind string) (int, packet, error) {
 	}
 	return start + p.len(), p, nil
 }
+
+// Macaroons defines a collection of multiple macaroons
+type Macaroons []*Macaroon
+
+// MarshalBinary implements encoding.BinaryMarshaler.
+func (ms Macaroons) MarshalBinary() ([]byte, error) {
+	b := []byte{}
+	for _, m := range ms {
+		d, err := m.MarshalBinary()
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal macaroon %v", err)
+		}
+		b = append(b, d...)
+	}
+	return b, nil
+}
+
+// UnmarshalBinary implements encoding.BinaryUnmarshaler.
+func (ms Macaroons) UnmarshalBinary(data []byte) error {
+	start := 0
+	var macs Macaroons
+	for start <= len(data) {
+		mac := Macaroon{}
+		err := mac.UnmarshalBinary(data)
+		if err != nil {
+			return fmt.Errorf("failed to unmarshal macaroon %v", err)
+		}
+		macs = append(macs, &mac)
+		start = start + len(mac.data)
+	}
+	return nil
+}

@@ -141,3 +141,7 @@ func asciiHex(b byte) (int, bool) {
 	}
 	return 0, false
 }
+
+func packetSize(field string, data []byte) int {
+	return 4 + len(field) + 1 + len(data)
+}

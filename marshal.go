@@ -178,12 +178,20 @@ func (m *Macaroon) expectPacket(start int, kind string) (int, packet, error) {
 	return start + p.len(), p, nil
 }
 
+func (m *Macaroon) marshalBinaryLen() int {
+	return len(m.data) + packetSize(fieldSignature, m.sig)
+}
+
 // Macaroons defines a collection of multiple macaroons
 type Macaroons []*Macaroon
 
 // MarshalBinary implements encoding.BinaryMarshaler.
 func (ms Macaroons) MarshalBinary() ([]byte, error) {
-	b := []byte{}
+	size := 0
+	for _, m := range ms {
+		size += m.marshalBinaryLen()
+	}
+	b := make([]byte, 0, size)
 	for _, m := range ms {
 		d, err := m.MarshalBinary()
 		if err != nil {

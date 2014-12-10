@@ -94,9 +94,9 @@ func (m *Macaroon) UnmarshalJSON(jsonData []byte) error {
 func (m *Macaroon) MarshalBinary() ([]byte, error) {
 	data := make([]byte, len(m.data), len(m.data)+len(m.sig))
 	copy(data, m.data)
-	data, _, ok := rawAppendPacket(data, fieldSignature, m.sig)
-	if !ok {
-		panic("cannot append signature")
+	data, err := m.appendBinary(data)
+	if err != nil {
+		return nil, fmt.Errorf("cannot append signature %q %v", m.Id(), err)
 	}
 	return data, nil
 }
@@ -178,6 +178,14 @@ func (m *Macaroon) expectPacket(start int, kind string) (int, packet, error) {
 	return start + p.len(), p, nil
 }
 
+func (m *Macaroon) appendBinary(data []byte) ([]byte, error) {
+	data, _, ok := rawAppendPacket(data, fieldSignature, m.sig)
+	if !ok {
+		return nil, fmt.Errorf("cannot append signature")
+	}
+	return data, nil
+}
+
 func (m *Macaroon) marshalBinaryLen() int {
 	return len(m.data) + packetSize(fieldSignature, m.sig)
 }
@@ -195,7 +203,7 @@ func (ms Macaroons) MarshalBinary() ([]byte, error) {
 	for _, m := range ms {
 		d, err := m.MarshalBinary()
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal macaroon %v", err)
+			return nil, fmt.Errorf("failed to marshal macaroon %q %v", m.Id(), err)
 		}
 		b = append(b, d...)
 	}
@@ -203,17 +211,20 @@ func (ms Macaroons) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler.
-func (ms Macaroons) UnmarshalBinary(data []byte) error {
-	start := 0
-	var macs Macaroons
-	for start <= len(data) {
-		mac := Macaroon{}
+func (ms *Macaroons) UnmarshalBinary(data []byte) error {
+	data = append([]byte(nil), data...)
+	*ms = (*ms)[:0]
+	for len(data) > 0 {
+		var mac Macaroon
 		err := mac.UnmarshalBinary(data)
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal macaroon %v", err)
+			return fmt.Errorf("cannot unmarshal macaroon: %v", err)
 		}
-		macs = append(macs, &mac)
-		start = start + len(mac.data)
+		*ms = append(*ms, &mac)
+		// Prevent the macaroon from overwriting the other ones
+		// by setting the capacity of its data.
+		mac.data = mac.data[0:len(mac.data):mac.marshalBinaryLen()]
+		data = data[mac.marshalBinaryLen():]
 	}
 	return nil
 }

@@ -42,15 +42,15 @@ func (*marshalSuite) TestMarshalUnmarshalMacaroons(c *gc.C) {
 	b, err := macaroons.MarshalBinary()
 	c.Assert(err, gc.IsNil)
 
-	unmarshalledMacs := macaroon.Macaroons{m1, m2}
+	unmarshalledMacs := macaroon.Macaroons{}
 	err = unmarshalledMacs.UnmarshalBinary(b)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(unmarshalledMacs, gc.HasLen, 2)
-	for i := 0; i < 1; i++ {
-		c.Assert(macaroons[i].Location(), gc.Equals, unmarshalledMacs[i].Location())
-		c.Assert(macaroons[i].Id(), gc.Equals, unmarshalledMacs[i].Id())
-		c.Assert(macaroons[i].Signature(), gc.DeepEquals, unmarshalledMacs[i].Signature())
-		c.Assert(macaroons[i].Caveats(), gc.DeepEquals, unmarshalledMacs[i].Caveats())
+	for i, m := range macaroons {
+		c.Assert(m.Location(), gc.Equals, unmarshalledMacs[i].Location())
+		c.Assert(m.Id(), gc.Equals, unmarshalledMacs[i].Id())
+		c.Assert(m.Signature(), gc.DeepEquals, unmarshalledMacs[i].Signature())
+		c.Assert(m.Caveats(), gc.DeepEquals, unmarshalledMacs[i].Caveats())
 	}
 }

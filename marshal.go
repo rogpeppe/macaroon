@@ -190,17 +190,19 @@ func (m *Macaroon) marshalBinaryLen() int {
 	return len(m.data) + packetSize(fieldSignature, m.sig)
 }
 
-// Macaroons defines a collection of multiple macaroons
-type Macaroons []*Macaroon
+// Slice defines a collection of macaroons. By convention, the
+// first macaroon in the slice is a primary macaroon and the rest
+// are discharges for its third party caveats.
+type Slice []*Macaroon
 
 // MarshalBinary implements encoding.BinaryMarshaler.
-func (ms Macaroons) MarshalBinary() ([]byte, error) {
+func (s Slice) MarshalBinary() ([]byte, error) {
 	size := 0
-	for _, m := range ms {
+	for _, m := range s {
 		size += m.marshalBinaryLen()
 	}
 	b := make([]byte, 0, size)
-	for _, m := range ms {
+	for _, m := range s {
 		d, err := m.MarshalBinary()
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal macaroon %q %v", m.Id(), err)
@@ -211,16 +213,16 @@ func (ms Macaroons) MarshalBinary() ([]byte, error) {
 }
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler.
-func (ms *Macaroons) UnmarshalBinary(data []byte) error {
+func (s *Slice) UnmarshalBinary(data []byte) error {
 	data = append([]byte(nil), data...)
-	*ms = (*ms)[:0]
+	*s = (*s)[:0]
 	for len(data) > 0 {
 		var mac Macaroon
 		err := mac.UnmarshalBinary(data)
 		if err != nil {
 			return fmt.Errorf("cannot unmarshal macaroon: %v", err)
 		}
-		*ms = append(*ms, &mac)
+		*s = append(*s, &mac)
 		// Prevent the macaroon from overwriting the other ones
 		// by setting the capacity of its data.
 		mac.data = mac.data[0:len(mac.data):mac.marshalBinaryLen()]

@@ -14,43 +14,76 @@ func (*marshalSuite) TestMarshalUnmarshalMacaroon(c *gc.C) {
 	rootKey := []byte("secret")
 	m := MustNew(rootKey, "some id", "a location")
 
-	m.AddFirstPartyCaveat("a caveat")
+	err := m.AddFirstPartyCaveat("a caveat")
+	c.Assert(err, gc.IsNil)
 
 	b, err := m.MarshalBinary()
 	c.Assert(err, gc.IsNil)
 
-	unmarshalledM := macaroon.Macaroon{}
-	err = unmarshalledM.UnmarshalBinary(b)
+	unmarshaledM := &macaroon.Macaroon{}
+	err = unmarshaledM.UnmarshalBinary(b)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(m.Location(), gc.Equals, unmarshalledM.Location())
-	c.Assert(m.Id(), gc.Equals, unmarshalledM.Id())
-	c.Assert(m.Signature(), gc.DeepEquals, unmarshalledM.Signature())
-	c.Assert(m.Caveats(), gc.DeepEquals, unmarshalledM.Caveats())
+	c.Assert(m.Location(), gc.Equals, unmarshaledM.Location())
+	c.Assert(m.Id(), gc.Equals, unmarshaledM.Id())
+	c.Assert(m.Signature(), gc.DeepEquals, unmarshaledM.Signature())
+	c.Assert(m.Caveats(), gc.DeepEquals, unmarshaledM.Caveats())
+	c.Assert(m, gc.DeepEquals, unmarshaledM)
 }
 
-func (*marshalSuite) TestMarshalUnmarshalMacaroons(c *gc.C) {
+func (*marshalSuite) TestMarshalUnmarshalSlice(c *gc.C) {
 	rootKey := []byte("secret")
 	m1 := MustNew(rootKey, "some id", "a location")
 	m2 := MustNew(rootKey, "some other id", "another location")
 
-	m1.AddFirstPartyCaveat("a caveat")
-	m2.AddFirstPartyCaveat("another caveat")
+	err := m1.AddFirstPartyCaveat("a caveat")
+	c.Assert(err, gc.IsNil)
+	err = m2.AddFirstPartyCaveat("another caveat")
+	c.Assert(err, gc.IsNil)
 
-	macaroons := macaroon.Macaroons{m1, m2}
+	macaroons := macaroon.Slice{m1, m2}
 
 	b, err := macaroons.MarshalBinary()
 	c.Assert(err, gc.IsNil)
 
-	unmarshalledMacs := macaroon.Macaroons{}
-	err = unmarshalledMacs.UnmarshalBinary(b)
+	unmarshaledMacs := macaroon.Slice{}
+	err = unmarshaledMacs.UnmarshalBinary(b)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(unmarshalledMacs, gc.HasLen, 2)
+	c.Assert(unmarshaledMacs, gc.HasLen, 2)
 	for i, m := range macaroons {
-		c.Assert(m.Location(), gc.Equals, unmarshalledMacs[i].Location())
-		c.Assert(m.Id(), gc.Equals, unmarshalledMacs[i].Id())
-		c.Assert(m.Signature(), gc.DeepEquals, unmarshalledMacs[i].Signature())
-		c.Assert(m.Caveats(), gc.DeepEquals, unmarshalledMacs[i].Caveats())
+		c.Assert(m.Location(), gc.Equals, unmarshaledMacs[i].Location())
+		c.Assert(m.Id(), gc.Equals, unmarshaledMacs[i].Id())
+		c.Assert(m.Signature(), gc.DeepEquals, unmarshaledMacs[i].Signature())
+		c.Assert(m.Caveats(), gc.DeepEquals, unmarshaledMacs[i].Caveats())
 	}
+	c.Assert(macaroons, gc.DeepEquals, unmarshaledMacs)
+
+	err = m1.AddFirstPartyCaveat("can we still add caveats?")
+	c.Assert(err, gc.IsNil)
+}
+
+func (*marshalSuite) TestSliceRoundtrip(c *gc.C) {
+	rootKey := []byte("secret")
+	m1 := MustNew(rootKey, "some id", "a location")
+	m2 := MustNew(rootKey, "some other id", "another location")
+
+	err := m1.AddFirstPartyCaveat("a caveat")
+	c.Assert(err, gc.IsNil)
+	err = m2.AddFirstPartyCaveat("another caveat")
+	c.Assert(err, gc.IsNil)
+
+	macaroons := macaroon.Slice{m1, m2}
+
+	b, err := macaroons.MarshalBinary()
+	c.Assert(err, gc.IsNil)
+
+	unmarshaledMacs := macaroon.Slice{}
+	err = unmarshaledMacs.UnmarshalBinary(b)
+	c.Assert(err, gc.IsNil)
+
+	marshaledMacs, err := unmarshaledMacs.MarshalBinary()
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(b, gc.DeepEquals, marshaledMacs)
 }

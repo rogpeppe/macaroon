@@ -92,13 +92,8 @@ func (m *Macaroon) UnmarshalJSON(jsonData []byte) error {
 
 // MarshalBinary implements encoding.BinaryMarshaler.
 func (m *Macaroon) MarshalBinary() ([]byte, error) {
-	data := make([]byte, len(m.data), len(m.data)+len(m.sig))
-	copy(data, m.data)
-	data, err := m.appendBinary(data)
-	if err != nil {
-		return nil, fmt.Errorf("cannot append signature %q %v", m.Id(), err)
-	}
-	return data, nil
+	data := make([]byte, 0, m.marshalBinaryLen())
+	return m.appendBinary(data)
 }
 
 // The binary format of a macaroon is as follows.
@@ -179,9 +174,10 @@ func (m *Macaroon) expectPacket(start int, kind string) (int, packet, error) {
 }
 
 func (m *Macaroon) appendBinary(data []byte) ([]byte, error) {
+	data = append(data, m.data...)
 	data, _, ok := rawAppendPacket(data, fieldSignature, m.sig)
 	if !ok {
-		return nil, fmt.Errorf("cannot append signature")
+		return nil, fmt.Errorf("failed to append signature to macaroon")
 	}
 	return data, nil
 }
@@ -201,15 +197,15 @@ func (s Slice) MarshalBinary() ([]byte, error) {
 	for _, m := range s {
 		size += m.marshalBinaryLen()
 	}
-	b := make([]byte, 0, size)
+	data := make([]byte, 0, size)
+	var err error
 	for _, m := range s {
-		d, err := m.MarshalBinary()
+		data, err = m.appendBinary(data)
 		if err != nil {
-			return nil, fmt.Errorf("failed to marshal macaroon %q %v", m.Id(), err)
+			return nil, fmt.Errorf("failed to marshal macaroon %q: %v", m.Id(), err)
 		}
-		b = append(b, d...)
 	}
-	return b, nil
+	return data, nil
 }
 
 // UnmarshalBinary implements encoding.BinaryUnmarshaler.

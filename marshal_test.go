@@ -46,11 +46,11 @@ func (*marshalSuite) TestMarshalUnmarshalSlice(c *gc.C) {
 	b, err := macaroons.MarshalBinary()
 	c.Assert(err, gc.IsNil)
 
-	unmarshaledMacs := macaroon.Slice{}
+	var unmarshaledMacs macaroon.Slice
 	err = unmarshaledMacs.UnmarshalBinary(b)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(unmarshaledMacs, gc.HasLen, 2)
+	c.Assert(unmarshaledMacs, gc.HasLen, len(macaroons))
 	for i, m := range macaroons {
 		c.Assert(m.Location(), gc.Equals, unmarshaledMacs[i].Location())
 		c.Assert(m.Id(), gc.Equals, unmarshaledMacs[i].Id())
@@ -59,7 +59,12 @@ func (*marshalSuite) TestMarshalUnmarshalSlice(c *gc.C) {
 	}
 	c.Assert(macaroons, gc.DeepEquals, unmarshaledMacs)
 
-	err = m1.AddFirstPartyCaveat("can we still add caveats?")
+	// The unmarshaled macaroons share the same underlying data
+	// slice, so check that appending a caveat to the first does not
+	// affect the second.
+	err = unmarshaledMacs[0].AddFirstPartyCaveat("caveat")
+	c.Assert(err, gc.IsNil)
+	c.Assert(unmarshaledMacs[1], gc.DeepEquals, macaroons[1])
 	c.Assert(err, gc.IsNil)
 }
 
@@ -78,7 +83,7 @@ func (*marshalSuite) TestSliceRoundtrip(c *gc.C) {
 	b, err := macaroons.MarshalBinary()
 	c.Assert(err, gc.IsNil)
 
-	unmarshaledMacs := macaroon.Slice{}
+	var unmarshaledMacs macaroon.Slice
 	err = unmarshaledMacs.UnmarshalBinary(b)
 	c.Assert(err, gc.IsNil)
 

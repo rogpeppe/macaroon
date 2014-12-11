@@ -108,10 +108,11 @@ func (m *Macaroon) MarshalBinary() ([]byte, error) {
 // )*
 // signature
 
-// UnmarshalBinary implements encoding.BinaryUnmarshaler.
-func (m *Macaroon) UnmarshalBinary(data []byte) error {
-	m.data = append([]byte(nil), data...)
-
+// unmarshalBinaryNoCopy is the internal implementation of
+// UnmarshalBinary. It differs in that it does not copy the
+// data.
+func (m *Macaroon) unmarshalBinaryNoCopy(data []byte) error {
+	m.data = data
 	var err error
 	var start int
 
@@ -159,7 +160,12 @@ func (m *Macaroon) UnmarshalBinary(data []byte) error {
 			return fmt.Errorf("unexpected field %q", field)
 		}
 	}
-	return nil
+}
+
+// UnmarshalBinary implements encoding.BinaryUnmarshaler.
+func (m *Macaroon) UnmarshalBinary(data []byte) error {
+	data = append([]byte(nil), data...)
+	return m.unmarshalBinaryNoCopy(data)
 }
 
 func (m *Macaroon) expectPacket(start int, kind string) (int, packet, error) {
@@ -214,7 +220,7 @@ func (s *Slice) UnmarshalBinary(data []byte) error {
 	*s = (*s)[:0]
 	for len(data) > 0 {
 		var mac Macaroon
-		err := mac.UnmarshalBinary(data)
+		err := mac.unmarshalBinaryNoCopy(data)
 		if err != nil {
 			return fmt.Errorf("cannot unmarshal macaroon: %v", err)
 		}

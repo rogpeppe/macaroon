@@ -62,8 +62,10 @@ func (*marshalSuite) TestMarshalUnmarshalSlice(c *gc.C) {
 	// The unmarshaled macaroons share the same underlying data
 	// slice, so check that appending a caveat to the first does not
 	// affect the second.
-	err = unmarshaledMacs[0].AddFirstPartyCaveat("caveat")
-	c.Assert(err, gc.IsNil)
+	for i := 0; i < 10; i++ {
+		err = unmarshaledMacs[0].AddFirstPartyCaveat("caveat")
+		c.Assert(err, gc.IsNil)
+	}
 	c.Assert(unmarshaledMacs[1], gc.DeepEquals, macaroons[1])
 	c.Assert(err, gc.IsNil)
 }
